@@ -22,6 +22,7 @@ import {
 } from "../github/githubActions";
 import { logger } from "../logger";
 import { store } from "../store";
+import { Thread } from "../interfaces";
 
 export async function handleClientReady(client: Client) {
   logger.info(`Logged in as ${client.user?.tag}!`);
@@ -29,17 +30,29 @@ export async function handleClientReady(client: Client) {
   store.threads = await getIssues();
 
   // Fetch cache for closed threads
-  store.threads.forEach((thread) => {
-    const cachedChannel = <ThreadChannel | undefined>(
-      client.channels.cache.get(thread.id)
-    );
-    cachedChannel?.messages.cache.map((message) => message.id);
-    if (!cachedChannel) {
-      client.channels.fetch(thread.id).then((ch) => {
-        (ch as ThreadChannel).messages.cache.map((message) => message.id);
-      });
+  const threadPromises = store.threads.map(async (thread) => {
+    const cachedChannel = client.channels.cache.get(thread.id) as
+      | ThreadChannel
+      | undefined;
+    if (cachedChannel) {
+      cachedChannel.messages.cache.forEach((message) => message.id);
+      return thread; // Returning thread as valid
+    } else {
+      try {
+        const channel = (await client.channels.fetch(
+          thread.id,
+        )) as ThreadChannel;
+        channel.messages.cache.forEach((message) => message.id);
+        return thread; // Returning thread as valid
+      } catch (error) {
+        return; // Marking thread as invalid
+      }
     }
   });
+  const threadPromisesResults = await Promise.all(threadPromises);
+  store.threads = threadPromisesResults.filter(
+    (thread) => thread !== undefined,
+  ) as Thread[];
 
   logger.info(`Issues loaded : ${store.threads.length}`);
 
