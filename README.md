@@ -56,10 +56,17 @@ Invite url: https://discord.com/api/oauth2/authorize?client_id=APPLICATION_ID&pe
 #### env
 
 -   DISCORD_TOKEN - Discord developer bot page "Settings->bot->reset token" (https://discord.com/developers/applications/APPLICATION_ID/bot)
--   DISCORD_CHANNEL_ID - In Discord server create forum channel and RMB copy id
--   GITHUB_ACCESS_TOKEN - "Settings->developer->personal acccess tokens" https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+-   DISCORD_CHANNEL_ID - In the Discord server, create a forum channel and right-click (RMB) to copy the channel ID (developer settings must be turned on for this). Alternatively, you can copy the ID from the link. Example:
+https://discord.com/channels/<GUILD_ID>/<DISCORD_CHANNEL_ID>
+-   GITHUB_ACCESS_TOKEN 
+    1. [New Fine-grained Personal Access Token](https://github.com/settings/personal-access-tokens/new) or follow these steps: Settings -> Developer settings -> Personal access tokens -> Fine-grained tokens -> Generate new token.
+    2. In the "Repository access" section, select "Only select repositories" and choose the specific repositories you need access to.
+    3. In the "Permissions" section, click on "Repository permissions" and set "Issues" to "Read & Write".
+    4. Generate and copy the personal access token.
 -   GITHUB_USERNAME - example: https://github.com/<GITHUB_USERNAME>/<GITHUB_REPOSITORY>
 -   GITHUB_REPOSITORY
+
+> **_NOTE:_** For detailed information about personal access tokens, visit the [Managing your personal access tokens - GitHub Docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
 
 #### Start bot
 
