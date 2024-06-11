@@ -30,14 +30,11 @@ export const repoCredentials = {
 
 const info = (action: ActionValue, thread: Thread) =>
   logger.info(`${Triggerer.Discord} | ${action} | ${getGithubUrl(thread)}`);
-
-function update(issue_number: number, state: "open" | "closed") {
-  octokit.rest.issues.update({
-    ...repoCredentials,
-    issue_number,
-    state,
-  });
-}
+const error = (action: ActionValue | string, thread?: Thread) =>
+  logger.error(
+    `${Triggerer.Discord} | ${action} ` +
+      (thread ? `| ${getGithubUrl(thread)}` : ""),
+  );
 
 function attachmentsToMarkdown(attachments: Collection<string, Attachment>) {
   let md = "";
@@ -93,135 +90,249 @@ function formatIssuesToThreads(issues: GitIssue[]): Thread[] {
   return res;
 }
 
-export function closeIssue(thread: Thread) {
-  const { number } = thread;
-  if (!number) return;
-
-  info(Actions.Closed, thread);
-
-  update(number, "closed");
+async function update(issue_number: number, state: "open" | "closed") {
+  try {
+    await octokit.rest.issues.update({
+      ...repoCredentials,
+      issue_number,
+      state,
+    });
+    return true;
+  } catch (err) {
+    return err;
+  }
 }
 
-export function openIssue(thread: Thread) {
-  const { number } = thread;
-  if (!number) return;
+export async function closeIssue(thread: Thread) {
+  const { number: issue_number } = thread;
 
-  info(Actions.Reopened, thread);
+  if (!issue_number) {
+    error("Thread does not have an issue number", thread);
+    return;
+  }
 
-  update(number, "open");
+  const response = await update(issue_number, "closed");
+  if (response === true) info(Actions.Closed, thread);
+  else if (response instanceof Error)
+    error(`Failed to close issue: ${response.message}`, thread);
+  else error("Failed to close issue due to an unknown error", thread);
 }
 
-export function lockIssue(thread: Thread) {
-  const { number } = thread;
-  if (!number) return;
+export async function openIssue(thread: Thread) {
+  const { number: issue_number } = thread;
 
-  info(Actions.Locked, thread);
+  if (!issue_number) {
+    error("Thread does not have an issue number", thread);
+    return;
+  }
 
-  octokit.rest.issues.lock({
-    ...repoCredentials,
-    issue_number: number,
-  });
+  const response = await update(issue_number, "open");
+  if (response === true) info(Actions.Reopened, thread);
+  else if (response instanceof Error)
+    error(`Failed to open issue: ${response.message}`, thread);
+  else error("Failed to open issue due to an unknown error", thread);
 }
 
-export function unlockIssue(thread: Thread) {
-  const { number } = thread;
-  if (!number) return;
+export async function lockIssue(thread: Thread) {
+  const { number: issue_number } = thread;
+  if (!issue_number) {
+    error("Thread does not have an issue number", thread);
+    return;
+  }
 
-  info(Actions.Unlocked, thread);
+  try {
+    await octokit.rest.issues.lock({
+      ...repoCredentials,
+      issue_number,
+    });
 
-  octokit.rest.issues.unlock({
-    ...repoCredentials,
-    issue_number: number,
-  });
+    info(Actions.Locked, thread);
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to lock issue: ${err.message}`, thread);
+    } else {
+      error("Failed to lock issue due to an unknown error", thread);
+    }
+  }
 }
 
-export function createIssue(thread: Thread, params: Message) {
+export async function unlockIssue(thread: Thread) {
+  const { number: issue_number } = thread;
+  if (!issue_number) {
+    error("Thread does not have an issue number", thread);
+    return;
+  }
+
+  try {
+    await octokit.rest.issues.unlock({
+      ...repoCredentials,
+      issue_number,
+    });
+
+    info(Actions.Unlocked, thread);
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to unlock issue: ${err.message}`, thread);
+    } else {
+      error("Failed to unlock issue due to an unknown error", thread);
+    }
+  }
+}
+
+export async function createIssue(thread: Thread, params: Message) {
   const { title, appliedTags, number } = thread;
-  if (number) return;
 
-  const labels = appliedTags?.map(
-    (id) => store.availableTags.find((item) => item.id === id)?.name || "",
-  );
+  if (number) {
+    error("Thread already has an issue number", thread);
+    return;
+  }
 
-  const body = getIssueBody(params);
-  octokit.rest.issues
-    .create({
+  try {
+    const labels = appliedTags?.map(
+      (id) => store.availableTags.find((item) => item.id === id)?.name || "",
+    );
+
+    const body = getIssueBody(params);
+    const response = await octokit.rest.issues.create({
       ...repoCredentials,
       labels,
       title,
       body,
-    })
-    .then((res) => {
-      thread.node_id = res.data.node_id;
-      thread.body = res.data.body!;
-      thread.number = res.data.number;
+    });
 
+    if (response && response.data) {
+      thread.node_id = response.data.node_id;
+      thread.body = response.data.body!;
+      thread.number = response.data.number;
       info(Actions.Created, thread);
-    });
-}
-
-export function createIssueComment(thread: Thread, params: Message) {
-  const body = getIssueBody(params);
-
-  octokit.rest.issues
-    .createComment({
-      ...repoCredentials,
-      issue_number: thread.number!,
-      body,
-    })
-    .then((res) => {
-      const git_id = res.data.id;
-      const id = params.id;
-      thread.comments.push({ id, git_id });
-      info(Actions.Commented, thread);
-    });
-}
-
-export function deleteIssue(thread: Thread) {
-  const { node_id } = thread;
-  if (!node_id) return;
-
-  info(Actions.Deleted, thread);
-
-  try {
-    graphqlWithAuth(
-      `mutation {deleteIssue(input: {issueId: "${node_id}"}) {clientMutationId}}`,
-    );
-  } catch (error) {
-    // error("Error deleting issue:", error);
+    } else {
+      error("Failed to create issue - No response data", thread);
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to create issue: ${err.message}`, thread);
+    } else {
+      error("Failed to create issue due to an unknown error", thread);
+    }
   }
 }
 
-export function deleteComment(thread: Thread, comment_id: number) {
-  octokit.rest.issues.deleteComment({
-    ...repoCredentials,
-    comment_id,
-  });
-  info(Actions.DeletedComment, thread);
+export async function createIssueComment(thread: Thread, params: Message) {
+  const body = getIssueBody(params);
+  const { number: issue_number } = thread;
+
+  if (!issue_number) {
+    error("Thread does not have an issue number", thread);
+    return;
+  }
+
+  try {
+    const response = await octokit.rest.issues.createComment({
+      ...repoCredentials,
+      issue_number: thread.number!,
+      body,
+    });
+    if (response && response.data) {
+      const git_id = response.data.id;
+      const id = params.id;
+      thread.comments.push({ id, git_id });
+      info(Actions.Commented, thread);
+    } else {
+      error("Failed to create comment - No response data", thread);
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to create comment: ${err.message}`, thread);
+    } else {
+      error("Failed to create comment due to an unknown error", thread);
+    }
+  }
+}
+
+export async function deleteIssue(thread: Thread) {
+  const { node_id } = thread;
+  if (!node_id) {
+    error("Thread does not have a node ID", thread);
+    return;
+  }
+
+  try {
+    await graphqlWithAuth(
+      `mutation {deleteIssue(input: {issueId: "${node_id}"}) {clientMutationId}}`,
+    );
+    info(Actions.Deleted, thread);
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Error deleting issue: ${err.message}`, thread);
+    } else {
+      error("Error deleting issue due to an unknown error", thread);
+    }
+  }
+}
+
+export async function deleteComment(thread: Thread, comment_id: number) {
+  try {
+    await octokit.rest.issues.deleteComment({
+      ...repoCredentials,
+      comment_id,
+    });
+    info(Actions.DeletedComment, thread);
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to delete comment: ${err.message}`, thread);
+    } else {
+      error("Failed to delete comment due to an unknown error", thread);
+    }
+  }
 }
 
 export async function getIssues() {
-  const result = await octokit.rest.issues.listForRepo({
-    ...repoCredentials,
-    state: "all",
-  });
-  fillCommentsData();
+  try {
+    const response = await octokit.rest.issues.listForRepo({
+      ...repoCredentials,
+      state: "all",
+    });
 
-  return formatIssuesToThreads(result.data as GitIssue[]);
+    if (!response || !response.data) {
+      error("Failed to get issues - No response data");
+      return [];
+    }
+
+    await fillCommentsData(); // Wait for comments data to be filled
+
+    return formatIssuesToThreads(response.data as GitIssue[]);
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to get issues: ${err.message}`);
+    } else {
+      error("Failed to get issues due to an unknown error");
+    }
+    return [];
+  }
 }
 
-function fillCommentsData() {
-  octokit.rest.issues
-    .listCommentsForRepo({
+async function fillCommentsData() {
+  try {
+    const response = await octokit.rest.issues.listCommentsForRepo({
       ...repoCredentials,
-    })
-    .then(({ data }) => {
-      data.forEach((comment) => {
+    });
+
+    if (response && response.data) {
+      response.data.forEach((comment) => {
         const { channelId, id } = getDiscordInfoFromGithubBody(comment.body!);
         if (!channelId || !id) return;
 
         const thread = store.threads.find((i) => i.id === channelId);
         thread?.comments.push({ id, git_id: comment.id });
       });
-    });
+    } else {
+      error("Failed to load comments - No response data");
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      error(`Failed to load comments: ${err.message}`);
+    } else {
+      error("Failed to load comments due to an unknown error");
+    }
+  }
 }
