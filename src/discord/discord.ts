@@ -1,4 +1,3 @@
-import type { WebSocketManager } from "@discordjs/ws/dist/index";
 import {
   Client,
   Events,
@@ -26,7 +25,8 @@ const client = new Client({
   ws: {
     buildStrategy: (manager) => {
       return new (class CompressionSimpleShardingStrategy extends SimpleShardingStrategy {
-        constructor(manager: WebSocketManager) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        constructor(manager: any) {
           manager.options.compression = null;
           super(manager);
         }
