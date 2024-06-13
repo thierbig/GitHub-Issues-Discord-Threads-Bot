@@ -27,7 +27,7 @@ jobs:
       - name: Prepare release artifacts
         run: |
           mkdir -p dist/release
-          mv dist/bundle.js dist/release/bundle.js
+          mv dist/index.js dist/release/index.js
           cp .env.example dist/release/.env
           cd dist
           tar -czvf release.tar.gz release
