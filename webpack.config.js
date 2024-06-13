@@ -3,7 +3,7 @@ const path = require("path");
 module.exports = {
   entry: "./src/index.ts",
   target: "node",
-  mode: "production",
+  mode: "development", // TODO: Resolve issue in production mode where `client.actions.ThreadCreate.handle(packet.d);` throws an error due to 'ThreadCreate' being undefined.
   module: {
     rules: [
       {
@@ -24,7 +24,7 @@ module.exports = {
     path: path.resolve(__dirname, "dist"),
   },
   optimization: {
-    splitChunks: false,
+    minimize: true,
   },
   node: {
     __dirname: false,
