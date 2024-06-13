@@ -32,8 +32,10 @@ jobs:
           mkdir -p dist/release
           mv dist/index.js dist/release/index.js
           cp .env.example dist/release/.env
+          cp deploy-assets/run.bat dist/release/run.bat
+          cp deploy-assets/run.sh dist/release/run.sh
           cd dist
-          tar -czvf release.tar.gz release
+          tar -czvf release.tar.gz release .
 
       - name: Create GitHub Release
         id: create_release

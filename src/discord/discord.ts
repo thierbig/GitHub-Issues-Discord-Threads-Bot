@@ -1,4 +1,10 @@
-import { Client, Events, GatewayIntentBits } from "discord.js";
+import type { WebSocketManager } from "@discordjs/ws/dist/index";
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  SimpleShardingStrategy,
+} from "discord.js";
 import { config } from "../config";
 import {
   handleChannelUpdate,
@@ -17,6 +23,16 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
   ],
+  ws: {
+    buildStrategy: (manager) => {
+      return new (class CompressionSimpleShardingStrategy extends SimpleShardingStrategy {
+        constructor(manager: WebSocketManager) {
+          manager.options.compression = null;
+          super(manager);
+        }
+      })(manager);
+    },
+  },
 });
 
 export function initDiscord() {

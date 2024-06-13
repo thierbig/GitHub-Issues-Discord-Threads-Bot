@@ -1,5 +1,4 @@
 const path = require("path");
-const nodeExternals = require("webpack-node-externals");
 
 module.exports = {
   entry: "./src/index.ts",
@@ -15,15 +14,19 @@ module.exports = {
     ],
   },
   resolve: {
+    fallback: {
+      "zlib-sync": false,
+      "utf-8-validate": false,
+      bufferutil: false,
+    },
     extensions: [".tsx", ".ts", ".js"],
   },
-  externals: [nodeExternals()],
   output: {
     filename: "index.js",
     path: path.resolve(__dirname, "dist"),
   },
   optimization: {
-    minimize: true,
+    splitChunks: false,
   },
   node: {
     __dirname: false,
