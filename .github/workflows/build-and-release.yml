@@ -14,18 +14,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4.0.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Build project
-        run: npm run build
+        run: pnpm run build
 
       - name: Prepare release artifacts
         run: |
@@ -35,7 +38,7 @@ jobs:
           cp deploy-assets/run.bat dist/release/run.bat
           cp deploy-assets/run.sh dist/release/run.sh
           cd dist/release
-          tar -czvf ../release.tar.gz *
+          tar -czvf ../release.tar.gz ./*
 
       - name: Create GitHub Release
         id: create_release
