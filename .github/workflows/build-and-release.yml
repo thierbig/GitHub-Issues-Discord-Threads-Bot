@@ -45,7 +45,7 @@ jobs:
           cp deploy-assets/run.bat dist/release/run.bat
           cp deploy-assets/run.sh dist/release/run.sh
           cd dist/release
-          tar -czvf ../release.tar.gz ./*
+          tar -czvf ../release.tar.gz --include='*' --include='.*'
 
       - name: Create GitHub Release
         id: create_release

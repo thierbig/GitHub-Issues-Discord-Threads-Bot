@@ -16,8 +16,6 @@ module.exports = {
   resolve: {
     fallback: {
       "zlib-sync": false,
-      "utf-8-validate": false,
-      bufferutil: false,
     },
     extensions: [".tsx", ".ts", ".js"],
   },
