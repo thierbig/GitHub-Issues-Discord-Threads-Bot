@@ -1,4 +1,9 @@
-import { Client, Events, GatewayIntentBits } from "discord.js";
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  SimpleShardingStrategy,
+} from "discord.js";
 import { config } from "../config";
 import {
   handleChannelUpdate,
@@ -17,6 +22,17 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
   ],
+  ws: {
+    buildStrategy: (manager) => {
+      return new (class CompressionSimpleShardingStrategy extends SimpleShardingStrategy {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        constructor(manager: any) {
+          manager.options.compression = null;
+          super(manager);
+        }
+      })(manager);
+    },
+  },
 });
 
 export function initDiscord() {

@@ -6,12 +6,13 @@ import client from "./discord/discord";
 export const logger = winston.createLogger({
   level: "info",
   format: format.combine(
+    format.colorize({ all: true }),
     format.timestamp({
       format: "MM-DD HH:mm:ss",
     }),
     format.printf(
       (info) =>
-        `${info.timestamp} ${info.message}` +
+        `${info.timestamp} [${info.level}]: ${info.message}` +
         (info.splat !== undefined ? `${info.splat}` : " "),
     ),
   ),
@@ -40,8 +41,9 @@ export const Actions = {
 export type ActionValue = (typeof Actions)[keyof typeof Actions];
 
 export const getDiscordUrl = (thread: Thread) => {
-  return `${client.channels.cache.get(config.DISCORD_CHANNEL_ID)
-    ?.url}/threads/${thread.id}`;
+  return `${
+    client.channels.cache.get(config.DISCORD_CHANNEL_ID)?.url
+  }/threads/${thread.id}`;
 };
 
 export const getGithubUrl = (thread: Thread) => {
